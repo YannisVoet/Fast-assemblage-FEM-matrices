@@ -1,0 +1,48 @@
+load "gmsh"
+
+int runs=5;
+int nbMeshes=6;
+int [int] sizes(nbMeshes);
+real[int] cpuTimeMass(nbMeshes);
+real[int] cpuTimeStiffness(nbMeshes);
+
+// P1 or P2 finite elements (FreeFEM++ creates its own P2 finite element mesh from the triangulation constructed using P1 finite elements in GMSH)
+string[int] names = ["p1_0_05", "p1_0_025", "p1_0_0125", "p1_0_0063", "p1_0_0031", "p1_0_0016"];
+
+for (int k=0; k<nbMeshes; k++){
+mesh Th=gmshload("../GMSH/Meshes/experiment1_" + names[k] + ".msh");
+
+// P1 or P2 FE space
+fespace Vh(Th,P1);     
+
+varf vMass (u,v)=int2d(Th)(u*v);
+varf vStiff (u,v)=int2d(Th)(dx(u)*dx(v)+dy(u)*dy(v));
+
+for (int i=0; i<runs; i++){
+real timeMass=clock();
+matrix M=vMass(Vh,Vh);
+cpuTimeMass[k]=cpuTimeMass[k]+clock()-timeMass;
+
+real timeStiffness=clock();
+matrix C=vStiff(Vh,Vh);
+cpuTimeStiffness[k]=cpuTimeStiffness[k]+clock()-timeStiffness;
+
+sizes[k]=M.n;
+}
+
+// Average over the number of runs
+cpuTimeMass[k]=cpuTimeMass[k]/runs;
+cpuTimeStiffness[k]=cpuTimeStiffness[k]/runs;
+
+}
+
+for (int k=0; k<nbMeshes; k++){
+cout << "Average CPU Time Mass for " << names[k] << ": " << cpuTimeMass[k] << endl;
+cout << "Average CPU Time Stiffness for " << names[k] << ": "<< cpuTimeStiffness[k] << endl;
+cout << "Matrix size: " << sizes[k] << endl;
+}
+
+ofstream ff("Times_p1_FF++_new.dat");
+for (int k=0; k<nbMeshes; k++){
+ff << cpuTimeMass[k] << " " << cpuTimeStiffness[k] << "\n";
+}
